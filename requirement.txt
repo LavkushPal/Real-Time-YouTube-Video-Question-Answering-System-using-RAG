@@ -1,5 +1,9 @@
 langchain
 langchain-core
+langchain-community
+
+youtube-transcript-api
+pytubefix
 
 langchain-google-genai
 google-generativeai
