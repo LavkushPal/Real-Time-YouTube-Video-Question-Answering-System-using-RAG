@@ -2,6 +2,9 @@ langchain
 langchain-core
 langchain-community
 
+langchain-pinecone
+langchain-google-genai
+
 youtube-transcript-api
 pytubefix
 
