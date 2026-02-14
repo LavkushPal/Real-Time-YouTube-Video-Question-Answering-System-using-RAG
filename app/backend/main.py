@@ -1,52 +1,57 @@
-from langchain_community.document_loaders import YoutubeLoader
-from langchain_community.document_loaders.youtube import TranscriptFormat
-
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableParallel,RunnableLambda,RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
-from langchain_pinecone import PineconeVectorStore
+from app.backend.controllers.vector_store import embedding_retriever
+from app.backend.config.embedding_model import chat_model
 
-from app.backend.controllers.vector_store import embedding_retriever,store_embedding
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
 try:
-    # Load YouTube video transcript in chunks of 30 seconds without video info
+
+    def format_docs(retrieved_docs):
+        context_text = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        return context_text
     
-    loader = YoutubeLoader.from_youtube_url(
-        "https://www.youtube.com/watch?v=LpHfmr1CKEI&list=PL4alkdQ6KryiM3jkLe87g8o6zZgwADP60&index=2",
-        add_video_info=False,
-        transcript_format=TranscriptFormat.CHUNKS,
-        chunk_size_seconds=30
+    prompt= PromptTemplate(
+        template="""
+            You are a helpful assistant.
+            Answer ONLY from the provided transcript context.
+            If the context is insufficient, just say you don't know.
+
+            Context: {context}
+            Question: {question}
+        """,
+        input_variables=['context','question']
     )
 
-    docs=loader.load()
 
-    full_transcript = " "
-    for doc in docs: 
-        full_transcript += doc.page_content
+    retriever = embedding_retriever()
+    runnable_formater = RunnableLambda(format_docs)
+    parser = StrOutputParser()
 
+    parallele_chain = RunnableParallel({
+        'context':  retriever | runnable_formater,
+        'question' : RunnablePassthrough()
+    })
 
-    splitter=RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
+    main_chain = parallele_chain | prompt | chat_model | parser
 
-    chunks=splitter.create_documents([full_transcript])
+    response = main_chain.invoke(input("type your query here : "))
 
-    # print(chunks[4])
-    # print(full_transcript) 
-
-    store_embedding(chunks)
-    retriever=embedding_retriever()
-
-    docs = retriever.invoke('what we are doing in this video and project')
-
-    print(docs)
+    print(f"response of query: {response}")
 
 
 
 except Exception as e:
     print(f"Error: {e}")
+
+
+# question='what we are doing in this video and project'
+# retrieved_docs = retriever.invoke(question)
+# final_prompt=prompt.invoke({'context':context_text,'question':question})
+# response=chat_model.invoke(final_prompt)
