@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "TubeTalk Extension",
+  "version": "1.0",
+  "description": "Talk to your current youtube video",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "permissions": ["tabs", "activeTab"]
+}

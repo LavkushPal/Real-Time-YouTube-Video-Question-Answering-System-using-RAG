@@ -7,3 +7,7 @@ tubetalk
 
 venv
 .venv
+
+
+node_modules
+dist
