@@ -8,7 +8,8 @@ export default function ChatPage() {
   ]);
 
   const [input, setInput] = useState("");
-  const [active_url,setActive_url]=useState("");
+  const [active_url, setActive_url] = useState("");
+  const [isQueryHit, setIsQueryHit] = useState(false);
 
   const bottomRef = useRef(null);
 
@@ -17,138 +18,138 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-
-    
-    const sendVideoToBackend = async (videoId) => {
+  const sendVideoToBackend = async (videoId) => {
     try {
-        const response = await axios.post( 
-            "http://localhost:5000/api/process-video",
+      const { data } = await axios.post(
+        "http://127.0.0.1:8000/api/process-transcript",
         {
-            activeUrl: videoId
-        }
-        );
+          activeUrl: videoId,
+        },
+      );
 
-        console.log("Response:", response.data);
+      console.log("Response:", data);
 
-        newMessage = {
-            id: Date.now(),
-            text: "Congrats, you can ask question now",
-            sender: "other",
-        };
+      let newMessage = {
+        id: Date.now(),
+        text: "Ask any question about video",
+        sender: "other",
+      };
 
-        setMessages([...messages, newMessage]);
-
+      setMessages((prev) => [...prev, newMessage]);
     } catch (error) {
-        console.error("Error:", error.response?.data || error.message);
+      console.error("Error:", error.response?.data || error.message);
     }
-    };
-
-
-    useEffect(()=>{
-        let newMessage = {
-            id: Date.now(),
-            text: "Hold on, we are processing video",
-            sender: "other",
-        };
-
-        setMessages([...messages, newMessage]);
-
-        sendVideoToBackend(active_url);
-
-    },[active_url]);
-
+  };
 
   function checkIfYouTubeVideo(url) {
     try {
-        const parsedUrl = new URL(url);
+      const parsedUrl = new URL(url);
 
-        const isYouTube = parsedUrl.hostname.includes("youtube.com");
-        const isWatchPage = parsedUrl.pathname === "/watch";
-        const videoId = parsedUrl.searchParams.get("v");
+      const isYouTube = parsedUrl.hostname.includes("youtube.com");
+      const isWatchPage = parsedUrl.pathname === "/watch";
+      const videoId = parsedUrl.searchParams.get("v");
 
-        if (isYouTube && isWatchPage && videoId) {
+      if (isYouTube && isWatchPage && videoId) {
         console.log("This is a YouTube video page");
         console.log("Video ID:", videoId);
-        } else {
+      } else {
         console.log("Not a youtube video page : please play any youtube video");
-        }
-
+      }
     } catch (error) {
-        console.log("Invalid URL: please play any youtube video");
+      console.log("Invalid URL: please play any youtube video");
+
+      let newMessage = {
+        id: Date.now(),
+        text: "Invalid URL: please play any youtube video",
+        sender: "other",
+      };
+
+      setMessages((prev) => [...prev, newMessage]);
     }
-}
-
-
+  }
 
   function getActiveTabURL() {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        const activeTab = tabs[0];
+      const activeTab = tabs[0];
+      if (!activeTab || !activeTab.url) return;
 
-        if (!activeTab || !activeTab.url) return;
+      const url = activeTab.url;
 
-        const url = activeTab.url;
-        console.log("Active URL:", url);
+      checkIfYouTubeVideo(url);
 
-        checkIfYouTubeVideo(url);
+      setActive_url(url);
+      sendVideoToBackend(url); // send immediately
 
-        setActive_url(url);
+      setIsQueryHit(false);
     });
-}
+  }
 
+  useEffect(() => {
+    const init = async () => {
+      setIsQueryHit(true);
 
-  useEffect(()=>{
-    //fetch youtube url on change in tab activity from current active tab
-    //send to backend to do indexing on this video
-    
-    // getActiveTabURL();
-
-  },[]);
-
-    const processs_query = async (query) => {
-    try {
-        const response = await axios.post(
-        "http://localhost:5000/api/process-query",
+      setMessages((prev) => [
+        ...prev,
         {
-            message:"process query ",
-            query:query
-        }
-        );
+          id: Date.now(),
+          text: "Processing transcript....",
+          sender: "other",
+        },
+      ]);
 
-        console.log("Response:", response.data);
+      await getActiveTabURL(); // call backend inside it
 
-        return response;
-
-    } catch (error) {
-        console.error("Error:", error.response?.data || error.message);
-    }
     };
 
-  const sendMessage = () => {
+    init();
+  }, []);
+
+  const processs_query = async (query) => {
+    try {
+      const { data } = await axios.post(
+        "http://127.0.0.1:8000/api/process-query",
+        {
+          query: query
+        },
+      );
+
+      console.log("Response:", data);
+
+      return data;
+    } catch (error) {
+      console.error("Error:", error?.data || error.message);
+    }
+  };
+
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMessage = {
+    setIsQueryHit(true);
+
+    const userMessage = {
       id: Date.now(),
       text: input,
       sender: "me",
     };
 
-    setMessages([...messages, newMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
 
-    // const response = processs_query(input);
+    const data = await processs_query(input);
 
-    // const ewMessage = {
-    //   id: Date.now(),
-    //   text:response.data?.output,
-    //   sender: "other",
-    // };
+    const botMessage = {
+      id: Date.now(),
+      text: data?.output || "No response",
+      sender: "other",
+    };
 
-    // setMessages([...messages, ewMessage]);
+    setMessages((prev) => [...prev, botMessage]);
+
+    setIsQueryHit(false);
   };
 
   return (
     <div className="flex flex-col  w-[300px] h-[400px] bg-gray-100">
-      
       {/* Header */}
       <div className="p-1 bg-white flex justify-start shadow">
         <h2 className="text-lg font-bold">TubeTalk</h2>
@@ -170,7 +171,8 @@ export default function ChatPage() {
                   : "bg-white text-gray-800"
               }`}
             >
-              {msg.text}
+              <p> {msg.text} </p>
+              
             </div>
           </div>
         ))}
@@ -189,9 +191,10 @@ export default function ChatPage() {
         />
         <button
           onClick={sendMessage}
-          className="bg-blue-00 text-black px-4 py-2 rounded-lg"
+          disabled={isQueryHit}
+          className="bg-blue-500 text-black px-4 py-2 rounded-lg"
         >
-          Send
+          {isQueryHit ? "Wait" : "Send"}
         </button>
       </div>
     </div>

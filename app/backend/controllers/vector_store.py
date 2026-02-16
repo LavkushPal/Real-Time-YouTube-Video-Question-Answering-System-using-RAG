@@ -1,5 +1,4 @@
-from app.backend.models.pinecone_index import vector_store
-
+from ..models.pinecone_index import vector_store
 
 
 def store_embedding(docs):
@@ -9,6 +8,14 @@ def store_embedding(docs):
     except Exception as e:
         print(f"embedding stores failed {e}")
 
+def clean_index():
+    try:
+        index = vector_store._index   # underlying pinecone index
+        index.delete(delete_all=True)
+        print("Index cleaned successfully")
+
+    except Exception as e:
+        print(f"Index cleanup failed: {e}")
 
 def embedding_retriever():
     try:

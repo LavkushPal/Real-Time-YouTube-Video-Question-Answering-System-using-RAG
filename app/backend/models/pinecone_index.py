@@ -1,5 +1,5 @@
-from app.backend.config.db import pc_db
-from app.backend.config.embedding_model import gemini_model
+from ..config.db import pc_db
+from ..config.embedding_model import gemini_model
 from pinecone import Metric
 from langchain_pinecone import PineconeVectorStore
 

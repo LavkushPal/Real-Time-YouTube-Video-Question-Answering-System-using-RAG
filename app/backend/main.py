@@ -1,57 +1,57 @@
-from langchain_core.documents import Document
-from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableParallel,RunnableLambda,RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from app.backend.controllers.vector_store import embedding_retriever
-from app.backend.config.embedding_model import chat_model
+from .Indexing_pipeline import process_transcript
+from .controllers.vector_store import clean_index
+from .query_pipeline import process_query
 
-from dotenv import load_dotenv
-
-load_dotenv()
+app = FastAPI()
 
 
-try:
+class TranscriptRequest(BaseModel):
+    activeUrl:str
 
-    def format_docs(retrieved_docs):
-        context_text = "\n\n".join(doc.page_content for doc in retrieved_docs)
-        return context_text
+class QueryRequest(BaseModel):
+    query:str
+
     
-    prompt= PromptTemplate(
-        template="""
-            You are a helpful assistant.
-            Answer ONLY from the provided transcript context.
-            If the context is insufficient, just say you don't know.
 
-            Context: {context}
-            Question: {question}
-        """,
-        input_variables=['context','question']
-    )
-
-
-    retriever = embedding_retriever()
-    runnable_formater = RunnableLambda(format_docs)
-    parser = StrOutputParser()
-
-    parallele_chain = RunnableParallel({
-        'context':  retriever | runnable_formater,
-        'question' : RunnablePassthrough()
-    })
-
-    main_chain = parallele_chain | prompt | chat_model | parser
-
-    response = main_chain.invoke(input("type your query here : "))
-
-    print(f"response of query: {response}")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 
-except Exception as e:
-    print(f"Error: {e}")
+
+@app.get("/")
+def read_root():
+    return {"message": "server is running"}
 
 
-# question='what we are doing in this video and project'
-# retrieved_docs = retriever.invoke(question)
-# final_prompt=prompt.invoke({'context':context_text,'question':question})
-# response=chat_model.invoke(final_prompt)
+@app.post('/api/process-transcript')
+def indexing(data:TranscriptRequest):
+    # print('url:',data.activeUrl)
+
+    clean_index() #clean index before processing next video
+
+    process_transcript(data.activeUrl)
+
+    return {
+        "recieved url":data.activeUrl,
+        "processing":'done'
+    }
+
+
+@app.post('/api/process-query')
+def processing(data:QueryRequest):
+      
+    response=process_query(data.query)
+
+    return {
+        "output": response
+    } 
+      
