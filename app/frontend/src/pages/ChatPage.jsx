@@ -109,7 +109,8 @@ export default function ChatPage() {
       const { data } = await axios.post(
         "http://127.0.0.1:8000/api/process-query",
         {
-          query: query
+          query: query,
+          activeUrl:active_url
         },
       );
 

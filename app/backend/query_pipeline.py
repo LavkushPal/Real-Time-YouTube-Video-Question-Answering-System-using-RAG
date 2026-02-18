@@ -6,11 +6,34 @@ from langchain_core.output_parsers import StrOutputParser
 from .controllers.vector_store import embedding_retriever
 from .config.embedding_model import chat_model
 
+from urllib.parse import urlparse, parse_qs
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
-def process_query(query:str):
+
+def extract_video_id(url: str) -> str | None:
+    """
+    Extracts YouTube video ID from various YouTube URL formats.
+    Returns None if no valid ID found.
+    """
+    parsed_url = urlparse(url)
+
+    # Case 1: Regular watch URL
+    if parsed_url.hostname in ["www.youtube.com", "youtube.com"]:
+        query_params = parse_qs(parsed_url.query)
+        return query_params.get("v", [None])[0]
+
+    # Case 2: Short URL (youtu.be)
+    if parsed_url.hostname == "youtu.be":
+        return parsed_url.path.lstrip("/")
+
+    return None
+
+
+
+def process_query(query:str,yt_link:str):
 
     try:
         def format_docs(retrieved_docs):
@@ -29,8 +52,9 @@ def process_query(query:str):
             input_variables=['context','question']
         )
 
+        video_id=extract_video_id(yt_link)
 
-        retriever = embedding_retriever()
+        retriever = embedding_retriever(video_id=video_id)
         runnable_formater = RunnableLambda(format_docs)
         parser = StrOutputParser()
 

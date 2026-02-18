@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel
 
 from .Indexing_pipeline import process_transcript
@@ -8,12 +9,12 @@ from .query_pipeline import process_query
 
 app = FastAPI()
 
-
 class TranscriptRequest(BaseModel):
     activeUrl:str
 
 class QueryRequest(BaseModel):
     query:str
+    activeUrl:str
 
     
 
@@ -36,7 +37,7 @@ def read_root():
 def indexing(data:TranscriptRequest):
     # print('url:',data.activeUrl)
 
-    clean_index() #clean index before processing next video
+    # clean_index() #clean index before processing next video
 
     process_transcript(data.activeUrl)
 
@@ -49,7 +50,7 @@ def indexing(data:TranscriptRequest):
 @app.post('/api/process-query')
 def processing(data:QueryRequest):
       
-    response=process_query(data.query)
+    response=process_query(data.query,data.activeUrl)
 
     return {
         "output": response
